@@ -23,75 +23,8 @@ $submissions   = getSubmissionsList($conn, $_GET['search'] ?? '', $_GET['status'
 
     <!-- Page CSS -->
     <link rel="stylesheet" href="../../css/dashboard-overview.css">
-
-    <style>
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg-primary); color: var(--text-primary); }
-        a { text-decoration: none; }
-        .filter-pills {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 16px;
-            flex-wrap: wrap;
-        }
-        .filter-pill {
-            padding: 6px 16px;
-            background: #f1f5f9;
-            border: 1px solid #e2e8f0;
-            border-radius: 20px;
-            cursor: pointer;
-            font-size: 13px;
-            transition: all 0.2s;
-        }
-        .filter-pill.active {
-            background: #10b981;
-            color: white;
-            border-color: #10b981;
-        }
-        /* Kebab Menu Styles */
-        .kebab-menu-container {
-            position: relative;
-            display: inline-block;
-        }
-        .kebab-btn {
-            background: none;
-            border: none;
-            font-size: 18px;
-            cursor: pointer;
-            padding: 8px;
-            color: #6b7280;
-            border-radius: 4px;
-        }
-        .kebab-btn:hover {
-            background-color: #f3f4f6;
-        }
-        .kebab-dropdown {
-            position: absolute;
-            right: 0;
-            top: 100%;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            min-width: 150px;
-            z-index: 100;
-            display: none;
-        }
-        .kebab-dropdown.active {
-            display: block;
-        }
-        .kebab-dropdown-item {
-            padding: 10px 16px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 14px;
-            color: #374151;
-        }
-        .kebab-dropdown-item:hover {
-            background-color: #f3f4f6;
-        }
-    </style>
+    <link rel="stylesheet" href="../../css/data-submission.css">      
+    
 </head>
 <body>
 
@@ -148,9 +81,9 @@ $submissions   = getSubmissionsList($conn, $_GET['search'] ?? '', $_GET['status'
                     <table class="data-table" id="submissionsTable">
                         <thead>
                             <tr>
-                                <th colspan="4"></th>
-                                <th colspan="2">
-                                    <div class="filter-pills" style="margin:0;justify-content:center">
+                                <th colspan="6"></th>
+                                <th style="min-width:320px">
+                                    <div class="filter-pills" style="margin:0;justify-content:flex-end;display:flex;flex-direction:row;gap:8px;white-space:nowrap">
                                         <button class="filter-pill active" data-filter="all">All types</button>
                                         <button class="filter-pill" data-filter="population">Population</button>
                                         <button class="filter-pill" data-filter="economic">Economic</button>
@@ -159,13 +92,13 @@ $submissions   = getSubmissionsList($conn, $_GET['search'] ?? '', $_GET['status'
                                 </th>
                             </tr>
                             <tr>
-                                <th><input type="checkbox" id="selectAll"></th>
-                                <th>Barangay</th>
-                                <th>Submitted By</th>
-                                <th>Date</th>
-                                <th>Status</th>
-                                <th>Remarks</th>
-                                <th>Actions</th>
+                                <th style="width:40px"><input type="checkbox" id="selectAll"></th>
+                                <th style="width:18%">Barangay</th>
+                                <th style="width:15%">Submitted By</th>
+                                <th style="width:12%">Date</th>
+                                <th style="width:12%">Status</th>
+                                <th style="width:auto">Remarks</th>
+                                <th style="text-align:right;min-width:320px">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="submissionsBody">
@@ -196,8 +129,8 @@ $submissions   = getSubmissionsList($conn, $_GET['search'] ?? '', $_GET['status'
                                 <td>
                                     <?= htmlspecialchars($sub['remarks'] ?? '—') ?>
                                 </td>
-                                <td>
-                                    <div class="kebab-menu-container">
+                                <td style="text-align:right">
+                                    <div class="kebab-menu-container" style="display:inline-block">
                                         <button class="kebab-btn" data-id="<?= $sub['id'] ?>">
                                             <i class="fas fa-ellipsis-v"></i>
                                         </button>

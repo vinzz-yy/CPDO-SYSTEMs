@@ -39,11 +39,7 @@ $barangayList = getBarangayList($conn);
     <!-- Page CSS -->
     <link rel="stylesheet" href="../../css/dashboard-overview.css">
 
-    <style>
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg-primary); color: var(--text-primary); }
-        a { text-decoration: none; }
-    </style>
+    
 </head>
 <body>
 
