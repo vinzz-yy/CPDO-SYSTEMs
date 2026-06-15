@@ -1,6 +1,4 @@
 <?php
-// Redirect to the dashboard
-header('Location: Frontend/views/cpdo-admin/dashboard-overview.php');
+// Redirect to frontend login page
+header('Location: Frontend/login.php');
 exit();
-?>
-

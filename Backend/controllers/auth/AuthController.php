@@ -1,7 +1,9 @@
 <?php
 require_once '../../db/conn.php';
 
-session_start();
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
 
 /**
  * Handle login request
@@ -50,7 +52,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
  * Handle logout request
  */
 if (isset($_GET['logout']) || (isset($_POST['logout']))) {
-    session_start();
+    if (session_status() == PHP_SESSION_NONE) {
+        session_start();
+    }
     session_unset();
     session_destroy();
     

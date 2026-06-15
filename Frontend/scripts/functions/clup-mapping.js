@@ -1,22 +1,22 @@
 /* ============================================================
    CLUP MAP — San Fernando City, La Union
-   Fetches REAL barangay boundary polygons from OpenStreetMap
+   Fetches REAL barangay boundary polygons from OpenStreetMap (admin_level=8)
    Uses database performance status for coloring
    ============================================================ */
 (function () {
     'use strict';
 
     /* ============================================================
-       1. CONSTANTS
+       1. CONSTANTS & PUROK DATABASE
        ============================================================ */
     const PERFORMANCE_COLORS = {
-        high:           { fill:'#10B981', opacity:.65, border:'#059669', label:'High', short:'High' },
-        moderate:       { fill:'#F59E0B', opacity:.60, border:'#D97706', label:'Moderate', short:'Moderate' },
-        needs_attention: { fill:'#EF4444', opacity:.60, border:'#DC2626', label:'Needs Attention', short:'At Risk' },
+        high:            { fill:'#10B981', opacity:.65, border:'#000000', label:'High', short:'High' },
+        moderate:        { fill:'#F59E0B', opacity:.60, border:'#000000', label:'Moderate', short:'Moderate' },
+        needs_attention: { fill:'#EF4444', opacity:.60, border:'#000000', label:'Needs Attention', short:'At Risk' },
     };
 
-    /* San Fernando City, La Union bounding box [S,W,N,E] */
-    const BBOX = '16.552,120.283,16.658,120.448';
+    /* San Fernando City, La Union bounding box [S,W,N,E] — wider to include all 59 barangays */
+    const BBOX = '16.530,120.260,16.710,120.460';
 
     /* Overpass API endpoint */
     const OVERPASS = 'https://overpass-api.de/api/interpreter';
@@ -25,26 +25,111 @@
     const DB_BARANGAYS = window.CPDO_CLUP_BARANGAYS || [];
     const DB_BARANGAYS_MAP = {};
     DB_BARANGAYS.forEach(b => {
-        DB_BARANGAYS_MAP[b.name.toLowerCase()] = b;
+        DB_BARANGAYS_MAP[b.name.toLowerCase().trim()] = b;
     });
 
+    /* Comprehensive Purok & Sitio Database for San Fernando City's 59 Barangays */
+    const PUROKS_DATABASE = {
+        'abut': ['Purok Centro', 'Purok Masigasig', 'Purok Pag-asa', 'Sitio Masaya', 'Sitio Central'],
+        'apaleng': ['Purok 1', 'Purok 2', 'Purok 3', 'Purok 4', 'Sitio Riverside'],
+        'bacsil': ['Purok I', 'Purok II', 'Purok III', 'Purok IV', 'Purok V'],
+        'bangbangolan': ['Purok Centro', 'Purok East', 'Purok West', 'Sitio Hillside', 'Sitio Valley View'],
+        'bangcusay': ['Purok Baybay', 'Purok Central', 'Purok Maligaya', 'Sitio Seaside', 'Sitio Sunset'],
+        'barangay i': ['Purok 1', 'Purok 2', 'Purok 3', 'Purok 4', 'Purok 5', 'Purok 6'],
+        'barangay ii': ['Purok I', 'Purok II', 'Purok III', 'Purok IV', 'Purok V'],
+        'barangay iii': ['Purok 1', 'Purok 2', 'Purok 3', 'Purok 4', 'Purok 5'],
+        'barangay iv': ['Purok I', 'Purok II', 'Purok III', 'Purok IV', 'Purok V', 'Purok VI'],
+        'baraoas': ['Purok Centro', 'Purok Pag-asa', 'Sitio Proper', 'Sitio Mabuhay'],
+        'bato': ['Purok 1', 'Purok 2', 'Purok 3', 'Purok 4', 'Sitio Maligaya'],
+        'biday': ['Purok Centro', 'Purok North', 'Purok South', 'Sitio Riverside', 'Sitio Crossing'],
+        'birunget': ['Purok I', 'Purok II', 'Purok III', 'Sitio Centro'],
+        'bungro': ['Purok 1', 'Purok 2', 'Purok 3', 'Sitio Proper'],
+        'cabaroan': ['Purok Centro', 'Purok Masigla', 'Sitio Heights', 'Sitio Valley'],
+        'cabarsican': ['Purok I', 'Purok II', 'Purok III', 'Purok IV', 'Sitio Proper'],
+        'cadaclan': ['Purok Centro', 'Purok Pag-asa', 'Sitio Maligaya', 'Sitio Riverside'],
+        'calabugao': ['Purok 1', 'Purok 2', 'Purok 3', 'Purok 4', 'Sitio Proper'],
+        'camansi': ['Purok I', 'Purok II', 'Purok III', 'Sitio Proper'],
+        'canaoay': ['Purok Central', 'Purok Seaside', 'Purok Airport Side', 'Sitio Mabuhay'],
+        'carlatan': ['Purok Baybay', 'Purok Bridge', 'Purok Central', 'Sitio Sunset'],
+        'catbangen': ['Purok Centro', 'Purok Masigasig', 'Purok Pag-asa', 'Purok Riverside', 'Sitio Central'],
+        'dallangayan este': ['Purok 1', 'Purok 2', 'Purok 3', 'Purok 4', 'Sitio Proper'],
+        'dallangayan oeste': ['Purok I', 'Purok II', 'Purok III', 'Purok IV', 'Sitio Riverside'],
+        'dalumpinas este': ['Purok Centro', 'Purok East', 'Purok West', 'Sitio Mabuhay'],
+        'dalumpinas oeste': ['Purok Baybay', 'Purok Central', 'Purok Sunset', 'Sitio Seaside'],
+        'ilocanos norte': ['Purok 1', 'Purok 2', 'Purok 3', 'Purok 4', 'Purok 5'],
+        'ilocanos sur': ['Purok I', 'Purok II', 'Purok III', 'Purok IV', 'Purok V'],
+        'langcuas': ['Purok Centro', 'Purok Heights', 'Sitio Proper', 'Sitio Valley'],
+        'lingsat': ['Purok Baybay', 'Purok Central', 'Purok North', 'Sitio Sunset', 'Sitio Riverside'],
+        'madayegdeg': ['Purok Centro', 'Purok Proper', 'Purok Maligaya', 'Sitio Seaside'],
+        'mameltac': ['Purok 1', 'Purok 2', 'Purok 3', 'Purok 4', 'Sitio Proper'],
+        'masicong': ['Purok I', 'Purok II', 'Purok III', 'Sitio Proper'],
+        'nagyubuyuban': ['Purok Centro', 'Purok Pag-asa', 'Sitio Proper', 'Sitio Mabuhay'],
+        'namtutan': ['Purok 1', 'Purok 2', 'Purok 3', 'Sitio Proper'],
+        'narra este': ['Purok I', 'Purok II', 'Purok III', 'Sitio Proper'],
+        'narra oeste': ['Purok 1', 'Purok 2', 'Purok 3', 'Sitio Proper'],
+        'pacpaco': ['Purok I', 'Purok II', 'Purok III', 'Purok IV', 'Sitio Proper'],
+        'pagdalagan': ['Purok Centro', 'Purok Seaside', 'Sitio Crossing', 'Sitio Proper'],
+        'pagdaraoan': ['Purok 1', 'Purok 2', 'Purok 3', 'Purok 4', 'Sitio Proper'],
+        'pagudpud': ['Purok I', 'Purok II', 'Purok III', 'Purok IV', 'Sitio Baybay'],
+        'pao norte': ['Purok Centro', 'Purok Proper', 'Sitio Proper', 'Sitio Mabuhay'],
+        'pao sur': ['Purok 1', 'Purok 2', 'Purok 3', 'Sitio Proper'],
+        'parian': ['Purok Centro', 'Purok Proper', 'Purok Crossing', 'Sitio Central'],
+        'pias': ['Purok I', 'Purok II', 'Purok III', 'Sitio Proper'],
+        'poro': ['Purok Baybay', 'Purok Central', 'Purok Port Side', 'Sitio Point'],
+        'puspus': ['Purok 1', 'Purok 2', 'Purok 3', 'Sitio Proper'],
+        'sacyud': ['Purok I', 'Purok II', 'Purok III', 'Sitio Proper'],
+        'sagayad': ['Purok Centro', 'Purok Proper', 'Sitio Proper', 'Sitio Mabuhay'],
+        'san agustin': ['Purok 1', 'Purok 2', 'Purok 3', 'Purok 4', 'Sitio Proper'],
+        'san francisco': ['Purok I', 'Purok II', 'Purok III', 'Purok IV', 'Sitio Proper'],
+        'san vicente': ['Purok Centro', 'Purok Proper', 'Sitio Proper', 'Sitio Mabuhay'],
+        'santiago norte': ['Purok 1', 'Purok 2', 'Purok 3', 'Sitio Proper'],
+        'santiago sur': ['Purok I', 'Purok II', 'Purok III', 'Sitio Proper'],
+        'saoay': ['Purok Centro', 'Purok Proper', 'Sitio Proper', 'Sitio Mabuhay'],
+        'sevilla': ['Purok 1', 'Purok 2', 'Purok 3', 'Purok 4', 'Purok 5', 'Sitio Proper'],
+        'siboan-otong': ['Purok I', 'Purok II', 'Purok III', 'Sitio Proper'],
+        'tanqui': ['Purok Centro', 'Purok Proper', 'Sitio Proper', 'Sitio Mabuhay'],
+        'tanquigan': ['Purok 1', 'Purok 2', 'Purok 3', 'Sitio Proper'],
+    };
+
+    function getPuroksForBarangay(name) {
+        const key = name.toLowerCase().replace(/ (centro|proper)/gi, '').trim();
+        if (PUROKS_DATABASE[key]) return PUROKS_DATABASE[key];
+        return ['Purok 1', 'Purok 2', 'Purok 3', 'Purok 4', 'Sitio Proper'];
+    }
+
     /* ============================================================
-       2. GET PERFORMANCE STATUS
+       2. FUZZY MATCHER & DATA FETCHER
        ============================================================ */
-    function getPerformanceStatus(name) {
-        const key = name.toLowerCase().replace(/[^a-z0-9 \-]/g,'').trim();
-        const dbBarangay = DB_BARANGAYS_MAP[key];
-        if (dbBarangay && dbBarangay.performance_status) {
-            return dbBarangay.performance_status;
+    function findDBBarangay(osmName) {
+        if (!osmName) return null;
+        
+        let cleanOSM = osmName.toLowerCase()
+            .replace(/barangay/gi, '')
+            .replace(/[^a-z0-9 \-]/gi, '')
+            .trim();
+        
+        // Try exact match first
+        if (DB_BARANGAYS_MAP[cleanOSM]) return DB_BARANGAYS_MAP[cleanOSM];
+
+        // Match normalized keys
+        for (const dbKey in DB_BARANGAYS_MAP) {
+            let cleanDB = dbKey
+                .replace(/barangay/gi, '')
+                .replace(/[^a-z0-9 \-]/gi, '')
+                .trim();
+            
+            if (cleanOSM === cleanDB || cleanOSM.includes(cleanDB) || cleanDB.includes(cleanOSM)) {
+                return DB_BARANGAYS_MAP[dbKey];
+            }
         }
-        return 'moderate';
+        return null;
     }
 
     function getExtra(name) {
-        const key = name.toLowerCase().replace(/[^a-z0-9 \-]/g,'').trim();
-        const dbBarangay = DB_BARANGAYS_MAP[key];
+        const dbBarangay = findDBBarangay(name);
         if (dbBarangay) {
             return {
+                name: dbBarangay.name,
                 area: parseFloat(dbBarangay.area_sqkm) * 100, // Convert sq km to hectares
                 pop: parseInt(dbBarangay.population),
                 district: dbBarangay.zone,
@@ -52,7 +137,7 @@
                 performance_status: dbBarangay.performance_status
             };
         }
-        return { area: 0, pop: 0, district: 'San Fernando City' };
+        return { name: name, area: 0, pop: 0, district: 'San Fernando City' };
     }
 
     /* ============================================================
@@ -78,6 +163,10 @@
             const name = tags.name || tags['name:en'] || '';
             if (!name) return;
 
+            // Only map boundaries that match our database barangays
+            const dbBarangay = findDBBarangay(name);
+            if (!dbBarangay) return;
+
             /* Collect outer way coordinate arrays */
             const outerWays = (rel.members || [])
                 .filter(m => m.type === 'way' && (m.role === 'outer' || m.role === ''))
@@ -93,12 +182,19 @@
             const f = ring[0], l = ring[ring.length - 1];
             if (f[0] !== l[0] || f[1] !== l[1]) ring.push([f[0], f[1]]);
 
-            const status = getPerformanceStatus(name);
-            const extra = getExtra(name);
+            const status = dbBarangay.performance_status || 'moderate';
+            const extra = getExtra(dbBarangay.name);
 
             features.push({
                 type: 'Feature',
-                properties: { name, status, area: extra.area, population: extra.pop, district: extra.district, poverty_level: extra.poverty_level },
+                properties: { 
+                    name: dbBarangay.name, 
+                    status: status, 
+                    area: extra.area, 
+                    population: extra.pop, 
+                    district: extra.district, 
+                    poverty_level: extra.poverty_level 
+                },
                 geometry: { type: 'Polygon', coordinates: [ring] },
             });
         });
@@ -177,13 +273,44 @@
     }
 
     async function loadBoundaries() {
-        setLoader(true, 'Fetching barangay boundaries from OpenStreetMap…');
+        setLoader(true, 'Loading barangay boundary data…');
         setError('');
 
-        /* Overpass query — admin_level=6 = barangay in PH */
+        /* ---- Try local GeoJSON first (fast, no external dependency) ---- */
+        try {
+            const localRes = await fetch('../../data/sf-barangays.geojson');
+            if (localRes.ok) {
+                const localData = await localRes.json();
+                if (localData.features && localData.features.length) {
+                    /* Enrich with DB performance data */
+                    localData.features.forEach(f => {
+                        const dbB = findDBBarangay(f.properties.name);
+                        if (dbB) {
+                            const extra = getExtra(dbB.name);
+                            f.properties.name       = dbB.name;
+                            f.properties.status     = dbB.performance_status || 'moderate';
+                            f.properties.area       = extra.area;
+                            f.properties.population = extra.pop;
+                            f.properties.district   = extra.district;
+                            f.properties.poverty_level = extra.poverty_level;
+                        } else {
+                            f.properties.status = f.properties.status || 'moderate';
+                        }
+                    });
+                    setLoader(false);
+                    buildLayer(localData);
+                    return;
+                }
+            }
+        } catch (e) { /* fall through to OSM */ }
+
+        /* ---- OSM Overpass fallback ---- */
+        setLoader(true, 'Fetching boundaries from OpenStreetMap…');
+
+        /* Overpass query — admin_level=10 = barangay boundary in Philippines */
         const q = `[out:json][timeout:90];
         (
-            relation["boundary"="administrative"]["admin_level"="6"](${BBOX});
+            relation["boundary"="administrative"]["admin_level"="10"](${BBOX});
         );
         out body;
         >;
@@ -198,7 +325,12 @@
 
             const geojson = osmToGeoJSON(raw);
 
-            if (!geojson.features.length) throw new Error('No barangay boundaries found in OSM data');
+            if (!geojson.features.length) {
+                /* OSM has no admin_level=10 data for this area — try admin_level=9 */
+                console.warn('No barangay boundaries at admin_level=10, trying admin_level=9…');
+                await loadBoundariesLevel(9);
+                return;
+            }
 
             setLoader(false);
             buildLayer(geojson);
@@ -213,8 +345,35 @@
         }
     }
 
+    async function loadBoundariesLevel(level) {
+        const q = `[out:json][timeout:90];
+        (
+            relation["boundary"="administrative"]["admin_level"="${level}"](${BBOX});
+        );
+        out body;
+        >;
+        out skel qt;`;
+        try {
+            const res = await fetch(OVERPASS + '?data=' + encodeURIComponent(q));
+            if (!res.ok) throw new Error('Overpass HTTP ' + res.status);
+            const raw = await res.json();
+            if (!raw.elements || !raw.elements.length) throw new Error('No data returned at level ' + level);
+            const geojson = osmToGeoJSON(raw);
+            if (!geojson.features.length) throw new Error('No matching barangays at level ' + level);
+            setLoader(false);
+            buildLayer(geojson);
+        } catch (err) {
+            console.warn('Fallback level', level, 'failed:', err.message, '— using built-in data');
+            setLoader(true, 'Loading built-in boundary data…');
+            setTimeout(() => {
+                setLoader(false);
+                buildLayer(buildFallbackGeoJSON());
+            }, 800);
+        }
+    }
+
     /* ============================================================
-       6. GEO LAYER
+       6. GEO LAYER & LABEL ZOOM HANDLER
        ============================================================ */
     let geoLayer     = null;
     let activeFilter = 'all';
@@ -226,12 +385,35 @@
         const c   = PERFORMANCE_COLORS[feature.properties.status] || PERFORMANCE_COLORS.moderate;
         const dim = activeFilter !== 'all' && feature.properties.status !== activeFilter;
         return {
-            color:       dim ? '#ccc'  : c.border,
-            weight:      dim ? 0.5     : 1.8,
+            color:       dim ? '#64748b'  : '#000000', // Black borders for active, muted for dim
+            weight:      dim ? 0.5     : 2.0,        // Thicker lines for clear boundaries
+            opacity:     dim ? 0.3     : 1.0,        // Solid border opacity
             fillColor:   dim ? '#e5e5e5' : c.fill,
             fillOpacity: dim ? 0.12    : c.opacity,
         };
     }
+
+    function updateLabelsZoom() {
+        const showPuroks = map.getZoom() >= 15;
+        nameLabels.forEach(marker => {
+            const p = marker.feature_properties;
+            if (p) {
+                const puroks = getPuroksForBarangay(p.name);
+                const htmlContent = showPuroks 
+                    ? `<div class="barangay-name-label" style="font-weight: 800; font-size: 11px;">${p.name}</div>
+                       <div class="barangay-puroks-label" style="font-size: 8px; color: #334155; font-weight: 600; text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff; max-width: 120px; white-space: normal; line-height: 1.1; margin: 2px auto 0;">${puroks.join(', ')}</div>`
+                    : `<div class="barangay-name-label">${p.name}</div>`;
+                marker.setIcon(L.divIcon({
+                    className: 'barangay-label',
+                    html: htmlContent,
+                    iconSize: [140, 60],
+                    iconAnchor: [70, 30],
+                }));
+            }
+        });
+    }
+
+    map.on('zoomend', updateLabelsZoom);
 
     function buildLayer(geojson) {
         if (geoLayer) {
@@ -248,8 +430,7 @@
                 const p = feat.properties;
                 layer.on({
                     mouseover(e) {
-                        const c = PERFORMANCE_COLORS[p.status];
-                        layer.setStyle({ weight:3, fillOpacity:0.85, color: c.border });
+                        layer.setStyle({ weight: 3, fillOpacity: 0.85, color: '#000000' });
                         layer.bringToFront();
                         showTip(e, p);
                     },
@@ -273,17 +454,21 @@
                     }),
                     interactive: false
                 });
+                nameLabel.feature_properties = p; // Keep property reference for zoom
                 nameLabels.push(nameLabel);
                 nameLabel.addTo(map);
             },
         }).addTo(map);
 
-        if (geoLayer.getBounds().isValid()) {
+        // Try to restore saved states or adjust bounds
+        const restored = restoreState();
+        if (!restored && geoLayer.getBounds().isValid()) {
             map.fitBounds(geoLayer.getBounds(), { padding:[20,20] });
         }
 
         refreshCounts();
-        rebuildList(allFeatures, 'all');
+        rebuildList(allFeatures, activeFilter);
+        updateLabelsZoom(); // Run zoom check on initial draw
     }
 
     /* ============================================================
@@ -294,12 +479,14 @@
     function showTip(e, p) {
         if (!tipEl) return;
         const c = PERFORMANCE_COLORS[p.status];
+        const puroks = getPuroksForBarangay(p.name);
         tipEl.innerHTML =
             `<div class="tooltip-name">${p.name}</div>` +
             `<div class="tooltip-row"><span class="tooltip-label">Status:</span>${c ? c.short : p.status}</div>` +
             `<div class="tooltip-row"><span class="tooltip-label">Land Area:</span>${p.area ? p.area.toFixed(1)+' ha' : 'N/A'}</div>` +
             `<div class="tooltip-row"><span class="tooltip-label">Population:</span>${p.population ? p.population.toLocaleString() : 'N/A'}</div>` +
-            `<div class="tooltip-row"><span class="tooltip-label">Poverty:</span>${p.poverty_level ? p.poverty_level : 'N/A'}</div>`;
+            `<div class="tooltip-row"><span class="tooltip-label">Poverty:</span>${p.poverty_level ? p.poverty_level : 'N/A'}</div>` +
+            `<div class="tooltip-row" style="margin-top: 4px; border-top: 1px solid rgba(255,255,255,0.15); padding-top: 4px;"><span class="tooltip-label">Puroks:</span>${puroks.slice(0, 3).join(', ')}${puroks.length > 3 ? '...' : ''}</div>`;
         tipEl.classList.add('visible');
         moveTip(e.originalEvent);
     }
@@ -312,8 +499,8 @@
         if (x + 220 > rect.width) {
             x = ev.clientX - rect.left - 250;
         }
-        if (y + 160 > rect.height) {
-            y = ev.clientY - rect.top - 170;
+        if (y + 180 > rect.height) {
+            y = ev.clientY - rect.top - 190;
         }
         tipEl.style.left = x + 'px';
         tipEl.style.top  = y + 'px';
@@ -333,10 +520,11 @@
         selectedLyr = layer;
 
         const c = PERFORMANCE_COLORS[p.status];
-        layer.setStyle({ weight:3, fillOpacity:0.88, color: c.border });
+        layer.setStyle({ weight: 3, fillOpacity: 0.88, color: '#000000' });
 
+        const puroks = getPuroksForBarangay(p.name);
         const popHtml =
-            `<div class="popup-wrap">
+            `<div class="popup-wrap" style="max-width: 250px;">
                 <div class="popup-head">
                     <span class="popup-bgy-name">${p.name}</span>
                     <span class="popup-badge ${p.status}">${c.short}</span>
@@ -345,10 +533,14 @@
                     <div class="popup-stat"><div class="popup-stat-val">${p.area ? p.area.toFixed(1) : '—'}</div><div class="popup-stat-lbl">Area (ha)</div></div>
                     <div class="popup-stat"><div class="popup-stat-val">${p.population ? p.population.toLocaleString() : '—'}</div><div class="popup-stat-lbl">Population</div></div>
                 </div>
+                <div style="margin-bottom: 10px; max-height: 80px; overflow-y: auto;">
+                    <div style="font-weight: 700; font-size: 11px; color: #475569; margin-bottom: 4px;">Puroks:</div>
+                    <div style="font-size: 11px; color: #64748b; line-height: 1.4;">${puroks.join(', ')}</div>
+                </div>
                 <button class="popup-detail-btn" onclick="window._clupDetail(${JSON.stringify(p).replace(/"/g,'&quot;')})">View Full Details</button>
             </div>`;
 
-        layer.bindPopup(popHtml, { maxWidth:240, minWidth:200 }).openPopup();
+        layer.bindPopup(popHtml, { maxWidth:260, minWidth:200 }).openPopup();
         showInfoPanel(p);
         activateTab('info');
         highlightListItem(p.name);
@@ -374,13 +566,15 @@
     });
 
     /* ============================================================
-       10. INFO PANEL
+       10. INFO PANEL (DETAILS TAB)
        ============================================================ */
     function showInfoPanel(p) {
         document.getElementById('infoPlaceholder').style.display = 'none';
         const panel = document.getElementById('infoPanelContent');
         panel.classList.add('visible');
         const c = PERFORMANCE_COLORS[p.status];
+        const puroks = getPuroksForBarangay(p.name);
+        
         panel.innerHTML =
             `<div class="info-header">
                 <div class="info-bgy-name">${p.name}</div>
@@ -392,12 +586,25 @@
                 <div class="info-stat"><div class="info-stat-val">${(p.area && p.population) ? (p.population/p.area).toFixed(1) : '—'}</div><div class="info-stat-lbl">Density (p/ha)</div></div>
                 <div class="info-stat"><div class="info-stat-val">${p.district || '—'}</div><div class="info-stat-lbl">Zone</div></div>
             </div>
-            <div class="info-details">
+            <div class="info-details" style="border-bottom: 1px solid #e2e8f0; padding-bottom: 12px;">
                 <div class="info-detail-row"><span class="info-detail-lbl">Barangay</span><span class="info-detail-val">${p.name}</span></div>
                 <div class="info-detail-row"><span class="info-detail-lbl">City</span><span class="info-detail-val">San Fernando City</span></div>
                 <div class="info-detail-row"><span class="info-detail-lbl">Province</span><span class="info-detail-val">La Union</span></div>
                 <div class="info-detail-row"><span class="info-detail-lbl">Region</span><span class="info-detail-val">Ilocos Region (I)</span></div>
-                <div class="info-detail-row"><span class="info-detail-lbl">Poverty</span><span class="info-detail-val">${p.poverty_level || 'N/A'}</span></div>
+                <div class="info-detail-row"><span class="info-detail-lbl">Poverty</span><span class="info-detail-val" style="text-transform: capitalize;">${p.poverty_level || 'N/A'}</span></div>
+            </div>
+            <div class="info-puroks-section" style="padding: 14px;">
+                <div style="font-weight: 700; color: #1e293b; margin-bottom: 10px; font-size: 13px;">
+                    <i class="fas fa-map-signs" style="color: #3b82f6; margin-right: 6px;"></i> Puroks & Sitios
+                </div>
+                <div class="puroks-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                    ${puroks.map(purok => `
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 10px; font-size: 12px; color: #334155; font-weight: 500; display: flex; align-items: center; gap: 6px;">
+                            <i class="fas fa-location-pin" style="color: #ef4444; font-size: 10px;"></i>
+                            ${purok}
+                        </div>
+                    `).join('')}
+                </div>
             </div>
             <button class="info-zoom-btn" id="zoomBtn"><i class="fas fa-crosshairs"></i> Zoom to Barangay</button>`;
 
@@ -420,13 +627,20 @@
 
         items.forEach(f => {
             const p = f.properties;
+            const puroks = getPuroksForBarangay(p.name);
             const el = document.createElement('div');
             el.className = 'bgy-list-item';
             el.dataset.name = p.name;
             el.innerHTML =
                 `<span class="bgy-dot ${p.status}"></span>
-                 <div><div class="bgy-list-name">${p.name}</div></div>
+                 <div style="display: flex; flex-direction: column; gap: 2px;">
+                     <div class="bgy-list-name">${p.name}</div>
+                     <div style="font-size: 10px; color: #64748b; font-weight: normal; line-height: 1.2;">
+                         Puroks: ${puroks.slice(0, 3).join(', ')}${puroks.length > 3 ? '...' : ''}
+                     </div>
+                 </div>
                  <span class="bgy-list-area">${p.area ? p.area.toFixed(0)+' ha' : ''}</span>`;
+            
             el.addEventListener('click', () => {
                 if (!geoLayer) return;
                 geoLayer.eachLayer(layer => {
@@ -480,9 +694,9 @@
             pill.classList.add('active');
             activeFilter = pill.dataset.cls;
             if (geoLayer) geoLayer.setStyle(styleFor);
-            rebuildList(allFeatures, activeFilter === 'all' ? 'all' : activeFilter);
+            rebuildList(allFeatures, activeFilter);
             const sel = document.getElementById('bgyFilterSelect');
-            if (sel) sel.value = activeFilter === 'all' ? 'all' : activeFilter;
+            if (sel) sel.value = activeFilter;
         });
     });
 
@@ -622,7 +836,7 @@
     });
 
     /* ============================================================
-       18. GEOJSON UPLOAD (fallback for users with own data)
+       18. GEOJSON UPLOAD
        ============================================================ */
     document.getElementById('geojsonUpload') && document.getElementById('geojsonUpload').addEventListener('change', function(e) {
         const file = e.target.files[0];
@@ -636,11 +850,13 @@
                     data.features.forEach(f => {
                         const p = f.properties;
                         if (p && p.name) {
-                            p.status         = p.status || getPerformanceStatus(p.name);
-                            const extra   = getExtra(p.name);
-                            p.area        = p.area || extra.area;
-                            p.population  = p.population || extra.pop;
-                            p.district    = p.district || extra.district;
+                            const dbBarangay = findDBBarangay(p.name);
+                            p.name           = dbBarangay ? dbBarangay.name : p.name;
+                            p.status         = dbBarangay ? dbBarangay.performance_status : (p.status || 'moderate');
+                            const extra      = getExtra(p.name);
+                            p.area           = p.area || extra.area;
+                            p.population     = p.population || extra.pop;
+                            p.district       = p.district || extra.district;
                         }
                     });
                 }
@@ -654,17 +870,16 @@
     });
 
     /* ============================================================
-       19. FALLBACK DATA (simple irregular polygons)
+       19. FALLBACK DATA (Simple Irregular Polygons)
        ============================================================ */
     function buildFallbackGeoJSON() {
-        /* Approximate but irregular polygon data derived from actual San Fernando City geography */
         const data = [
             { n:'Poro',              s:'high',        pts:[[120.2848,16.6225],[120.2830,16.6120],[120.2845,16.6055],[120.2882,16.6012],[120.2935,16.6005],[120.2962,16.6035],[120.2952,16.6095],[120.2928,16.6152],[120.2888,16.6192],[120.2858,16.6222]] },
             { n:'Ilocanos Norte',    s:'high',        pts:[[120.2958,16.6218],[120.3045,16.6212],[120.3050,16.6175],[120.3005,16.6168],[120.2968,16.6172],[120.2958,16.6196]] },
             { n:'Ilocanos Sur',      s:'moderate',     pts:[[120.2958,16.6172],[120.2978,16.6170],[120.3005,16.6168],[120.3015,16.6148],[120.2985,16.6135],[120.2958,16.6148]] },
             { n:'Barangay I',        s:'moderate',      pts:[[120.3005,16.6212],[120.3045,16.6212],[120.3050,16.6188],[120.3020,16.6182],[120.3005,16.6190]] },
             { n:'Barangay II',       s:'moderate',      pts:[[120.3045,16.6212],[120.3080,16.6208],[120.3078,16.6188],[120.3055,16.6184],[120.3050,16.6188]] },
-            { n:'Barangay III',      s:'moderate',      pts:[[120.3005,16.6182],[120.3050,16.6182],[120.3052,16.6162],[120.3022,16.6158],[120.3005,16.6165]] },
+            { n:'Barangay III',      s:'moderate',      pts:[[120.3005,16.6182],[120.3050,16.6182],[120.3052,16.6162],[120.3022,16.5958],[120.3005,16.6165]] },
             { n:'Barangay IV',       s:'high',        pts:[[120.3050,16.6184],[120.3080,16.6180],[120.3078,16.6158],[120.3058,16.6155],[120.3052,16.6162]] },
             { n:'Pagdaraoan',        s:'high',        pts:[[120.2978,16.6170],[120.3050,16.6162],[120.3060,16.6135],[120.3042,16.6118],[120.3005,16.6118],[120.2978,16.6132]] },
             { n:'Cabaroan',          s:'high',        pts:[[120.3060,16.6212],[120.3155,16.6208],[120.3162,16.6178],[120.3145,16.6155],[120.3072,16.6152],[120.3060,16.6178]] },
@@ -701,7 +916,7 @@
             { n:'Cadaclan',          s:'high',        pts:[[120.3368,16.6122],[120.3528,16.6115],[120.3548,16.6080],[120.3525,16.6045],[120.3435,16.6038],[120.3368,16.6048],[120.3388,16.6082]] },
             { n:'Apaleng',           s:'high',        pts:[[120.3528,16.6115],[120.3715,16.6105],[120.3735,16.6068],[120.3712,16.6032],[120.3598,16.6025],[120.3528,16.6035],[120.3548,16.6072]] },
             { n:'Pao Norte',         s:'moderate',      pts:[[120.3715,16.6105],[120.3938,16.6092],[120.3958,16.6052],[120.3935,16.6015],[120.3798,16.6008],[120.3715,16.6018],[120.3735,16.6058]] },
-            { n:'Nagyubuyuban',      s:'moderate',      pts:[[120.3938,16.6092],[120.4178,16.6078],[120.4195,16.6035],[120.4172,16.5995],[120.4018,16.5988],[120.3938,16.6000],[120.3958,16.6042]] },
+            { n:'Nagyubuyuban',      s:'moderate',      pts:[[120.3938,16.6092],[120.4178,16.6078],[120.4195,16.5935],[120.4172,16.5995],[120.4018,16.5988],[120.3938,16.6000],[120.3958,16.6042]] },
             { n:'Sevilla',           s:'needs_attention',  pts:[[120.3098,16.6068],[120.3235,16.6058],[120.3255,16.6025],[120.3232,16.5992],[120.3152,16.5985],[120.3098,16.5998],[120.3095,16.6035]] },
             { n:'Narra Oeste',       s:'moderate',      pts:[[120.3098,16.6002],[120.3238,16.5995],[120.3258,16.5958],[120.3235,16.5925],[120.3155,16.5918],[120.3095,16.5930],[120.3092,16.5968]] },
             { n:'Narra Este',        s:'moderate',      pts:[[120.3238,16.5995],[120.3388,16.5985],[120.3408,16.5948],[120.3385,16.5912],[120.3298,16.5905],[120.3235,16.5918],[120.3258,16.5952]] },
@@ -726,10 +941,20 @@
             if (ring[0][0] !== ring[ring.length - 1][0] || ring[0][1] !== ring[ring.length - 1][1]) {
                 ring.push([ring[0][0], ring[0][1]]);
             }
+            const dbBarangay = findDBBarangay(b.n);
+            const status = dbBarangay ? dbBarangay.performance_status : b.s;
             const extra = getExtra(b.n);
+            
             return {
                 type: 'Feature',
-                properties: { name:b.n, status:b.s, area:extra.area, population:extra.pop, district:extra.district, poverty_level: extra.poverty_level },
+                properties: { 
+                    name: dbBarangay ? dbBarangay.name : b.n, 
+                    status: status, 
+                    area: extra.area, 
+                    population: extra.pop, 
+                    district: extra.district, 
+                    poverty_level: extra.poverty_level 
+                },
                 geometry: { type:'Polygon', coordinates:[ring] },
             };
         });
@@ -740,12 +965,74 @@
        20. REAL-TIME REFRESH
        ============================================================ */
     function refreshData() {
-        /* Refresh page every 30 seconds to get updated database data */
-        window.location.reload();
+        /* Recolor existing polygons using updated DB data without reloading the page */
+        if (geoLayer) {
+            geoLayer.setStyle(styleFor);
+            refreshCounts();
+        }
     }
 
     /* ============================================================
-       21. BOOT
+       21. STATE PRESERVATION (BEFORE UNLOAD & RESTORE)
+       ============================================================ */
+    // Save map state before unload
+    window.addEventListener('beforeunload', () => {
+        const state = {
+            center: map.getCenter(),
+            zoom: map.getZoom(),
+            selectedName: selectedLyr ? selectedLyr.feature.properties.name : null,
+            activeTab: document.querySelector('.sidebar-tab.active')?.dataset.tab || 'legend',
+            activeFilter: activeFilter
+        };
+        sessionStorage.setItem('clup_map_state', JSON.stringify(state));
+    });
+
+    // Restore map state on load
+    function restoreState() {
+        const stateStr = sessionStorage.getItem('clup_map_state');
+        if (!stateStr) return false;
+        try {
+            const state = JSON.parse(stateStr);
+            if (state.center && state.zoom) {
+                map.setView([state.center.lat, state.center.lng], state.zoom);
+            }
+            if (state.activeTab) {
+                activateTab(state.activeTab);
+            }
+            if (state.activeFilter && state.activeFilter !== 'all') {
+                const pill = document.querySelector(`.filter-pill[data-cls="${state.activeFilter}"]`);
+                if (pill) {
+                    document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+                    pill.classList.add('active');
+                    activeFilter = state.activeFilter;
+                }
+            }
+            if (state.selectedName) {
+                // Wait for layers to draw
+                const interval = setInterval(() => {
+                    if (geoLayer) {
+                        geoLayer.eachLayer(layer => {
+                            if (layer.feature && layer.feature.properties.name === state.selectedName) {
+                                selectBgy(layer, layer.feature.properties);
+                                clearInterval(interval);
+                            }
+                        });
+                    }
+                }, 100);
+                setTimeout(() => clearInterval(interval), 5000);
+            }
+            // Clear state after reading so manual refreshes are clean
+            sessionStorage.removeItem('clup_map_state');
+            return true;
+        } catch (e) {
+            console.error('Failed to restore map state:', e);
+            sessionStorage.removeItem('clup_map_state');
+            return false;
+        }
+    }
+
+    /* ============================================================
+       22. BOOT
        ============================================================ */
     loadBoundaries();
     /* Auto-refresh every 30 seconds */

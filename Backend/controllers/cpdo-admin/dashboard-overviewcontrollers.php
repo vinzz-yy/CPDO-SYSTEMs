@@ -520,11 +520,21 @@ function getChartData($conn) {
  * --------------------------------------------------------------- */
 function getBarangayList($conn) {
     $stmt = $conn->query("
-        SELECT id, name, performance_status AS status,
-               coordinates_lat AS lat, coordinates_lng AS lng,
-               poverty_level, population, area_sqkm
-        FROM barangays
-        ORDER BY name ASC
+        SELECT 
+            b.id, 
+            b.name, 
+            b.zone,
+            b.population, 
+            b.area_sqkm, 
+            b.poverty_level, 
+            b.performance_status,
+            b.coordinates_lat, 
+            b.coordinates_lng,
+            COUNT(p.id) AS active_programs
+        FROM barangays b
+        LEFT JOIN programs p ON b.id = p.barangay_id AND p.status = 'in_progress'
+        GROUP BY b.id
+        ORDER BY b.name ASC
     ");
     return $stmt->fetchAll();
 }
